@@ -35,4 +35,7 @@ object DummyGraphs {
   /** An ordinary sequence with the Failure node available - to simulate different operators where Failure matters */
   def sequneceWithFailure(start: Int, end: Int) = sequence(start, end)
     .rule {case (n, g, edges) if n == end => edges ++ Set(n ~ g.endpoints(FAILURE))} // Dummy failure implementation as another child of the last node of the sequence
+
+  /** Endless streams of basic sequences. */
+  val seqs = Stream.continually(sequneceWithFailure(1, 5))
 }

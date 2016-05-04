@@ -5,6 +5,7 @@ case class Edge[N](source: N, destination: N)
 /** A node got as a result of a product of two or more Graph[N]. */
 trait HyperNodeTrait[N] {
   def coordinates: Seq[N]
+  def ~(that: HyperNodeTrait[N]) = Edge[HyperNodeTrait[N]](this, that)
 }
 
 case class HyperNode[N](coordinates: Seq[N]) extends HyperNodeTrait[N] {

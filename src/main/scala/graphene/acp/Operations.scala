@@ -18,50 +18,26 @@ object Ops extends OpsHelpers {
   }
 
   // `||` in ACP 1983 paper sense. A cartesian product of the graphs
-  def acpParallelism[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = {
-    // Head, zero, is (0, 0, ..., 0) - the entry point of the hypergraph
-    // "0" in the coordinates are heads of the graphs in `graphs`.
-    val head = HyperNode(graphs.map(_.endpoints(HEAD)))
-
-    // Success is is (1, 1, ..., 1), where "1" is the success of a graph in `graphs`.
-    val success = HyperNode(graphs.map(_.endpoints(SUCCESS)))
-
-    Graph[HyperNodeTrait[N]](
-      endpoints = Map(
-        HEAD    -> head
-      , SUCCESS -> success
-      )
-    , Nil  // We will build rules from scratch
-    ).rule(cartesian(graphs))
-  }
+  def acpParallelism[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = hypergraph[N](graphs)
+    .rule(cartesian(graphs))
 
   /** `&` in SubScript sense. */
-  def weakAnd[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = {
-    val head = HyperNode(graphs.map(_.endpoints(HEAD)))
-
-    // Can't reuse existing hypernodes for Success and Failure anymore.
-    // Since multiple hypernodes in the graph can be considered a failure,
-    // we need to model it separately as a single node.
-    val success: HyperNodeTrait[N] = new HyperNodeEndpoint(SUCCESS)
-    val failure: HyperNodeTrait[N] = new HyperNodeEndpoint(FAILURE)
-
-    Graph[HyperNodeTrait[N]](
-      endpoints = Map[String, HyperNodeTrait[N]](
-        HEAD    -> head
-      , SUCCESS -> success
-      , FAILURE -> failure
-      ), Nil
-    )
-    .rule(cartesian(graphs))          // Strong And is a cartesian product
+  def weakAnd[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = hypergraph[N](graphs)
+    .rule(cartesian(graphs))          // Weak And is a cartesian product
     .rule {                           // It has success only if all the operands have success
-      case (n @ HyperNode(coords), _, edges) if coords.zip(graphs).forall {case (c, g) => g.is(SUCCESS, c)} =>
-        edges ++ Set((n: HyperNodeTrait[N]) ~ success)
+      case (n @ HyperNode(coords), hg, edges) if coords.zip(graphs).forall {case (c, g) => g.is(SUCCESS, c)} =>
+        edges ++ Set(n ~ hg.endpoints(SUCCESS))
     }
     .rule {  // If some of the operands failed, it is a failure
-      case (n @ HyperNode(coords), _, edges) if coords.zip(graphs).exists {case (c, g) => g.is(FAILURE, c)} =>
-        edges ++ Set((n: HyperNodeTrait[N]) ~ failure)
+      case (n @ HyperNode(coords), hg, edges) if coords.zip(graphs).exists {case (c, g) => g.is(FAILURE, c)} =>
+        edges ++ Set(n ~ hg.endpoints(FAILURE))
     }
-  }
+
+  /** Like weakAnd, but you move directly to failure from the individual processes' failures. */
+  def strongAnd[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = weakAnd(graphs: _*)
+    .rule {case (n @ HyperNode(coords), hg, _) if coords.zip(graphs).exists {case (c, g) => g.is(FAILURE, c)} =>  // For all individual processes' failures
+      Set(n ~ hg.endpoints(FAILURE))  // The only way is directly to global failure. No `edges ++ Set(...)`, just `Set(...)`, all previous connections are erased
+    }
 
 }
 
@@ -78,7 +54,18 @@ trait OpsHelpers {
   def cartesian[N](graphs: Seq[Graph[N]]): PartialFunction[(HyperNodeTrait[N], Graph[HyperNodeTrait[N]], Set[Edge[HyperNodeTrait[N]]]), Set[Edge[HyperNodeTrait[N]]]] = {
     case (n @ HyperNode(coords), _, edges) => edges ++ coords.zip(graphs).zipWithIndex.flatMap {case ((a, aGraph), id) =>
       val aCoords = aGraph(a)  // Get the nodes `a` connected to under `A`
-      aCoords.map(aEdge => (n: HyperNodeTrait[N]) ~ HyperNode(coords.updated(id, aEdge.destination)))
+      aCoords.map(aEdge => n ~ HyperNode(coords.updated(id, aEdge.destination)))
     }.toSet
   }
+
+  def hypergraph[N](graphs: Seq[Graph[N]]): Graph[HyperNodeTrait[N]] = Graph[HyperNodeTrait[N]](
+    endpoints = Map[String, HyperNodeTrait[N]](
+      HEAD    -> new HyperNodeEndpoint(HEAD   )
+    , SUCCESS -> new HyperNodeEndpoint(SUCCESS)
+    , FAILURE -> new HyperNodeEndpoint(FAILURE)
+    )
+  , rules = Nil
+  )
+  .rule {case (n @ HyperNode(coords), hg, edges) if coords.zip(graphs).forall {case (c, g) => g.is(HEAD, c)} => edges ++ Set(hg.endpoints(HEAD) ~ n)}  // Connect HEAD to the all processes' head
+
 }
