@@ -25,7 +25,7 @@ class Graph[N](val endpoints: Endpoints[N], val rules: List[Rule[N]]) extends Fu
   /** Tests whether the given node is a given endpoint. */
   def is(name: String, node: N): Boolean =
     endpoints.get(name).map(_ == node).getOrElse(false)
-
+    
   /** Serializes this graph to a GEXF format for Gephi (https://gephi.org/gexf/format/). */
   def toXml: xml.Node = {
     def genColor(node: N, endpointName: String, color: (Int, Int, Int)) =
@@ -77,4 +77,5 @@ object Graph {
     edges.foldLeft(new Graph[N](endpoints, Nil))
       {(g, e) => g.rule {case (e.source, _, edges) => edges ++ Set(e)}}  // Writing the rules for the edges
       .rule {case (n, g, e) if g.is(HEAD, n) => e ++ Set(n ~ edges.head.source)} // Connect HEAD to the source of the first edge - so that it is available from the head.
+
 }
