@@ -38,7 +38,12 @@ object Main {
 
 
     // === Handling exponentialy growing amount of nodes ===
-    val g = acpParallelism(seqs.take(10): _*)  // ~5^10 == ~9 750 000 nodes
+    val g     = acpParallelism(seqs.take(10): _*)  // ~5^10 == ~9 750 000 nodes
+    val head  = g.endpoints(HEAD)
+    val child = g(head).toSeq.head.destination
+
+    println(s"Head of the large graph: $head")
+    println(s"Some child of the large graph's head: $child")
     println(s"Rules set describing the large graph: ${g.rules.size}")
     println(s"Endpoints of the large graph: ${g.endpoints}")
   }
