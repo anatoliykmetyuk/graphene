@@ -5,18 +5,6 @@ import graphene.core.Graph._
 
 object Ops extends OpsHelpers {
 
-  /** Sequences several graphs. The result is a new graph so that the successes of the `graphs` are connected to the heads of the subsequent graphs. */
-  def seq[N](graphs: Graph[N]*): Graph[N] = graphs.reduceLeft {(g1, g2) =>
-    Graph(
-      endpoints = Map(
-        HEAD    -> g1.endpoints(HEAD   )  // Head is reused from g1
-      , SUCCESS -> g2.endpoints(SUCCESS)  // Success is reused from g2, since g1.success is connected to g2.head
-      )
-    , g1.rules ++ g2.rules  // Union
-    )
-    .rule {case (n, _, edges) if n == g1.endpoints(SUCCESS) => edges ++ Set(n ~ g2.endpoints(HEAD))}  // Connect g1.success and g2.head
-  }
-
   // `||` in ACP 1983 paper sense. A cartesian product of the graphs
   def acpParallelism[N](graphs: Graph[N]*): Graph[HyperNodeTrait[N]] = product(graphs).rule(cartesian(graphs))
 
