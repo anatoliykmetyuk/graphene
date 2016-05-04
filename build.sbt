@@ -10,4 +10,7 @@ import graphene.acp._
 
 import Graph._
 import IO._
+
+import Ops._
+import DummyGraphs._
 """

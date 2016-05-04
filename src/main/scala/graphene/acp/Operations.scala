@@ -68,6 +68,38 @@ object Ops extends OpsHelpers {
     =>  Set(n ~ hg.endpoints(SUCCESS))
     }
 
+  /** `/` in SubScript */
+  def disruption[N](g1: Graph[N], g2: Graph[N]): Graph[HyperNodeTrait[N]] = product(Seq(g1, g2))
+    // All the nodes are connected on `g2` axis
+    .rule {case (n @ HyperNode(Seq(g1c, g2c)), hg, edges) =>
+      edges ++ g2(g2c).map {g2edge => n ~ HyperNode(Seq(g1c, g2edge.destination))}
+    }
+
+    // Only [_, 0] hypernodes are connected on `g1` axis ("0" is the head of `g2`)
+    .rule {case (n @ HyperNode(Seq(g1c, g2c)), hg, edges) if g2.is(HEAD, g2c) =>
+      edges ++ g1(g1c).map {g1edge => n ~ HyperNode(Seq(g1edge.destination, g2c))}
+    }
+
+    // SUCCESS: Either g1 success or g2 success
+    .rule {case (n @ HyperNode(Seq(g1c, g2c)), hg, edges) if
+        g1.is(SUCCESS, g1c)  // g1 success
+    ||  g2.is(SUCCESS, g2c)  // g2 success
+    =>  Set(n ~ hg.endpoints(SUCCESS))
+    }
+
+    // FAILURE: Either g1 or g2 failure
+    .rule {case (n @ HyperNode(Seq(g1c, g2c)), hg, edges) if
+        g1.is(FAILURE, g1c)
+    ||  g2.is(FAILURE, g2c)
+    =>  Set(n ~ hg.endpoints(FAILURE))
+    }
+
+  /** Like disruption, but all the nodes [_, 1] or [_, -1] are connected on the `g1` axis also (1 is success, -1 is failure) */
+  def interruption[N](g1: Graph[N], g2: Graph[N]): Graph[HyperNodeTrait[N]] = disruption(g1, g2)
+    .rule {case (n @ HyperNode(Seq(g1c, g2c)), hg, edges) if g2.is(FAILURE, g2c) || g2.is(SUCCESS, g2c) =>
+      g1(g1c).map {g1edge => n ~ HyperNode(Seq(g1edge.destination, g2c))}  // Don't do `edges ++` - these end nodes are no longer connected to SUCCESS and FAILURE
+    }
+
 }
 
 trait OpsHelpers {
