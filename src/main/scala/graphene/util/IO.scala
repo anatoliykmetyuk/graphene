@@ -1,4 +1,4 @@
-package graphene
+package graphene.util
 
 import org.apache.commons.io.FileUtils
 import java.io.File
